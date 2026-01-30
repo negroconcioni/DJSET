@@ -12,6 +12,7 @@ class SongAnalysis(BaseModel):
     key: str = Field(..., description="Musical key e.g. C major")
     key_scale: str = Field(default="major", description="major or minor")
     key_camelot: Optional[str] = Field(default=None, description="Camelot Wheel e.g. 8A, 1B for LLM")
+    key_confidence: Optional[float] = Field(default=None, ge=0, le=1, description="Key detection confidence 0-1 (Camelot score)")
     beats: list[float] = Field(default_factory=list, description="Beat times in seconds")
     energy: float = Field(..., ge=0, le=1, description="Overall energy 0-1 (raw); use energy_1_10 for display")
     duration_sec: float = Field(..., description="Duration in seconds")

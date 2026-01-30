@@ -73,6 +73,15 @@
         <a id="downloadTracklistLink" class="btn-download-tracklist" href="#" download="opus_set_tracklist.txt">TRACKLIST / LOG</a>
       </div>
       <div class="progress-bar" id="progressBar" role="progressbar" aria-hidden="true"></div>
+      <div class="camelot-score-panel is-hidden" id="camelotScorePanel" aria-hidden="true">
+        <h2 class="camelot-score-title">Camelot Wheel Score</h2>
+        <div class="camelot-score-body" id="camelotScoreBody">
+          <span class="camelot-keys" id="camelotKeys">—</span>
+          <span class="camelot-distance" id="camelotDistance">—</span>
+          <span class="camelot-score-value" id="camelotScoreValue">—</span>
+          <span class="camelot-confidence" id="camelotConfidence">—</span>
+        </div>
+      </div>
       <div class="musical-insight" id="musicalInsight">
         <h2 class="insight-title">Musical Insight</h2>
         <div class="insight-body" id="insightBody"></div>
@@ -80,6 +89,9 @@
       <div id="result-container" class="result-container is-hidden" aria-hidden="true">
         <h2 class="result-title">Set listo</h2>
         <audio id="main-player" class="main-player" controls></audio>
+        <div class="mix-transients-wrap" id="mixTransientsWrap" aria-hidden="true">
+          <canvas id="mixTransientsCanvas" class="mix-transients-canvas" width="800" height="80" aria-label="Envelope de la mezcla"></canvas>
+        </div>
         <div class="result-actions">
           <a id="btnDownloadSet" class="btn-opus" href="#" download="opus_set.wav">DOWNLOAD SET (.WAV)</a>
           <a id="btnDownloadTracklist" class="btn-opus" href="#" download="opus_set_tracklist.txt">DOWNLOAD TRACKLIST</a>

@@ -24,10 +24,10 @@ _CAMELOT_MAJOR = [1, 8, 3, 10, 5, 12, 7, 2, 9, 4, 11, 6]   # C C# D D# E F F# G 
 _CAMELOT_MINOR = [11, 5, 8, 7, 2, 10, 4, 9, 6, 1, 12, 3]   # Am Bm C#m D#m Em F#m G#m Dm Gm Cm Fm Bbm
 
 
-def _key_from_chroma(chroma_avg: np.ndarray) -> tuple[str, str]:
-    """Key from averaged chroma using Krumhansl-Schmuckler. Returns (note_name, scale)."""
+def _key_from_chroma(chroma_avg: np.ndarray) -> tuple[str, str, float]:
+    """Key from averaged chroma using Krumhansl-Schmuckler. Returns (note_name, scale, confidence 0-1)."""
     if chroma_avg.size != 12:
-        return "C", "major"
+        return "C", "major", 0.5
     chroma_avg = chroma_avg.astype(np.float32)
     best_corr = -np.inf
     best_key = 0
@@ -48,36 +48,38 @@ def _key_from_chroma(chroma_avg: np.ndarray) -> tuple[str, str]:
             best_corr = corr_min
             best_key = shift
             best_scale = "minor"
-    return _NOTES[best_key], best_scale
+    # Normalize correlation to 0-1 (typical range ~0.3–0.9)
+    confidence = float(np.clip((best_corr + 0.2) / 1.1, 0.0, 1.0))
+    return _NOTES[best_key], best_scale, confidence
 
 
-def detect_key(y: np.ndarray, sr: int) -> tuple[str, str, str]:
+def detect_key(y: np.ndarray, sr: int) -> tuple[str, str, str, float]:
     """
-    Detect tonalidad usando chroma_cqt y chroma_stft; combina ambos para robustez.
-    Returns (key_name, scale, camelot) e.g. ("C", "major", "8A") or ("A", "minor", "1B").
+    Detect tonalidad con Librosa: chroma_cqt (principal) + chroma_stft; Krumhansl-Schmuckler → Camelot.
+    Returns (key_name, scale, camelot, key_confidence 0-1).
     """
     try:
-        # Chroma CQT (mejor para tonalidad)
+        # Chroma CQT: mejor para tonalidad (espectro logarítmico)
         chroma_cqt = librosa.feature.chroma_cqt(
             y=y, sr=sr, hop_length=2048, bins_per_octave=36
         )
         mean_cqt = np.mean(chroma_cqt, axis=1)
         if mean_cqt.size != 12:
-            return "C", "major", "1A"
-        # Chroma STFT (complementario)
+            return "C", "major", "1A", 0.5
+        # Chroma STFT: complementario para transitorios
         chroma_stft = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=2048)
         mean_stft = np.mean(chroma_stft, axis=1)
         if mean_stft.size != 12:
-            key_name, scale = _key_from_chroma(mean_cqt)
+            key_name, scale, conf = _key_from_chroma(mean_cqt)
             camelot = key_to_camelot(key_name, scale)
-            return key_name, scale, camelot
-        # Combinar: promedio ponderado (CQT suele ser más fiable para key)
+            return key_name, scale, camelot, conf
+        # Combinar: CQT más fiable para key
         combined = 0.6 * mean_cqt + 0.4 * mean_stft
-        key_name, scale = _key_from_chroma(combined)
+        key_name, scale, conf = _key_from_chroma(combined)
         camelot = key_to_camelot(key_name, scale)
-        return key_name, scale, camelot
+        return key_name, scale, camelot, conf
     except Exception:
-        return "C", "major", "1A"
+        return "C", "major", "1A", 0.5
 
 
 def key_to_camelot(key_name: str, scale: str) -> str:
@@ -127,19 +129,17 @@ def harmonic_distance_camelot(camelot_a: str, camelot_b: str) -> int:
     return dist
 
 
-def _key_essentia(path: Path) -> tuple[str, str]:
-    """Fallback: Essentia KeyExtractor. Returns (key_name, scale)."""
+def _key_librosa_fallback(y: np.ndarray, sr: int) -> tuple[str, str, float]:
+    """Fallback: estimar key con chroma STFT cuando detect_key falla. Returns (key_name, scale, confidence)."""
     try:
-        import essentia.standard as es
-        loader = es.MonoLoader(filename=str(path))
-        audio = loader()
-        key_extractor = es.KeyExtractor()
-        key, scale, strength = key_extractor(audio)
-        key_name = key or "C"
-        scale_name = (scale or "major").lower()
-        return key_name, scale_name
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=2048)
+        mean_chroma = np.mean(chroma, axis=1)
+        if mean_chroma.size == 12:
+            k, s, c = _key_from_chroma(mean_chroma.astype(np.float32))
+            return k, s, c
     except Exception:
-        return "C", "major"
+        pass
+    return "C", "major", 0.5
 
 
 def _bpm_librosa(y: np.ndarray, sr: int) -> float:
@@ -203,10 +203,11 @@ def analyze_song(path: Path, sr: Optional[int] = None) -> SongAnalysis:
     y, _ = librosa.load(path, sr=sr, mono=True)
 
     try:
-        key_name, scale_name, key_camelot = detect_key(y, sr)
+        key_name, scale_name, key_camelot, key_confidence = detect_key(y, sr)
     except Exception:
-        key_name, scale_name = _key_essentia(path)
+        key_name, scale_name, key_conf = _key_librosa_fallback(y, sr)
         key_camelot = key_to_camelot(key_name, scale_name)
+        key_confidence = key_conf
 
     bpm = _bpm_librosa(y, sr)
     beats = _beats_librosa(y, sr)
@@ -219,6 +220,7 @@ def analyze_song(path: Path, sr: Optional[int] = None) -> SongAnalysis:
         key=key_name,
         key_scale=scale_name,
         key_camelot=key_camelot,
+        key_confidence=key_confidence,
         beats=beats,
         energy=energy,
         duration_sec=duration_sec,

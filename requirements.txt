@@ -5,17 +5,19 @@ fastapi==0.109.2
 uvicorn[standard]==0.27.1
 python-multipart==0.0.9
 
-# Audio analysis
+# Audio analysis (BPM, energía, key: todo con librosa)
 librosa==0.10.2
 soundfile==0.12.1
 numpy==1.26.4
 scipy==1.12.0
-essentia>=2.1b5
 
 # LLM (OpenAI-compatible API for JSON decision only)
 openai==1.12.0
 pydantic==2.6.1
 pydantic-settings==2.1.0
+
+# Cloud sampler: download samples on-demand (audio-worker)
+httpx>=0.27.0
 
 # Rubber Band CLI wrapper (subprocess)
 # FFmpeg: install via system (brew/apt)
@@ -28,4 +30,3 @@ redis>=5.0.0
 python-socketio==5.11.0
 python-engineio==4.8.0
 aiohttp>=3.9.0
-pydantic-settings

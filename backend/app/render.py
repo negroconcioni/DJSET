@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from .audio.processor import render_professional_mix as processor_mix
 from .audio.cloud_downloader import download_urls_to_temp, cleanup_temp_dir
-from .config import settings
 from .models import MixStrategy, SongAnalysis
 
 # Redondeo de tiempos (evita errores de precisión)
@@ -59,6 +58,20 @@ def _duration(path: Path) -> float:
         check=True,
     )
     return float(result.stdout.strip())
+
+
+def _create_silent_wav(work_dir: Path, name: str = "silent.wav") -> Path:
+    """Crea un WAV silencioso corto (0.1 s) para usar como placeholder cuando no hay cloud sample."""
+    out = work_dir / name
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+            "-t", "0.1", "-acodec", "pcm_s16le", str(out),
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return out
 
 
 def render_mix(
@@ -129,45 +142,67 @@ def render_mix(
             getattr(strategy, "harmonic_distance", None) is not None
             and strategy.harmonic_distance > 1
         )
-        overlay_instrument = getattr(strategy, "overlay_instrument", None)
-        overlay_vocal = getattr(strategy, "overlay_vocal", None)
-        overlay_paths = getattr(strategy, "overlay_paths", None) or []
-        overlay_bpms = getattr(strategy, "overlay_bpms", None) or []
-        overlay_entry_sec = getattr(strategy, "overlay_entry_sec", None)
+        overlay_entry_sec = getattr(strategy, "overlay_entry_sec", None) or 0.0
         overlay_instrument_url = getattr(strategy, "overlay_instrument_url", None)
         overlay_vocal_url = getattr(strategy, "overlay_vocal_url", None)
         overlay_instrument_bpm = getattr(strategy, "overlay_instrument_bpm", None)
         overlay_vocal_bpm = getattr(strategy, "overlay_vocal_bpm", None)
 
+        # Siempre 4 inputs: track_a, track_b, cloud_vocal, cloud_instrument. Descarga en orden vocal, instrument.
+        had_vocal = bool(overlay_vocal_url and str(overlay_vocal_url).strip().startswith("http"))
+        had_instrument = bool(overlay_instrument_url and str(overlay_instrument_url).strip().startswith("http"))
+        urls: List[str] = []
+        if had_vocal:
+            urls.append(str(overlay_vocal_url).strip())
+        if had_instrument:
+            urls.append(str(overlay_instrument_url).strip())
+
+        path_cloud_vocal: Optional[Path] = None
+        path_cloud_instrument: Optional[Path] = None
         cloud_temp_dir: Optional[Path] = None
-        if overlay_instrument_url or overlay_vocal_url:
-            urls: List[str] = []
-            bpms_cloud: List[float] = []
-            for url, bpm in [(overlay_instrument_url, overlay_instrument_bpm), (overlay_vocal_url, overlay_vocal_bpm)]:
-                if url and str(url).strip().startswith("http"):
-                    urls.append(str(url).strip())
-                    bpms_cloud.append(float(bpm) if bpm is not None and bpm > 0 else 120.0)
-            if urls:
-                overlay_paths_cloud, cloud_temp_dir = download_urls_to_temp(urls)
-                overlay_paths = list(overlay_paths_cloud)
-                overlay_bpms = bpms_cloud
 
-        has_overlays = bool(overlay_instrument or overlay_vocal or overlay_paths)
-        target_bpm = (analysis_a.bpm + analysis_b.bpm) / 2.0 if has_overlays else None
+        if urls:
+            overlay_paths_cloud, cloud_temp_dir = download_urls_to_temp(urls)
+            # Confirmación de descarga: verificar que los archivos están en /tmp antes de FFmpeg
+            for i, p in enumerate(overlay_paths_cloud):
+                if not p.exists():
+                    raise RuntimeError(
+                        f"[render] Cloud sample not downloaded: expected {p} (index {i}). "
+                        "Verificá que las URLs en cloud_assets.json sean accesibles y que httpx pueda descargar."
+                    )
+                if p.stat().st_size <= 0:
+                    raise RuntimeError(
+                        f"[render] Cloud sample empty after download: {p} (index {i}). "
+                        "El archivo remoto puede estar vacío o la descarga falló."
+                    )
+            if had_vocal and had_instrument:
+                path_cloud_vocal = overlay_paths_cloud[0]
+                path_cloud_instrument = overlay_paths_cloud[1]
+            elif had_vocal:
+                path_cloud_vocal = overlay_paths_cloud[0]
+            else:
+                path_cloud_instrument = overlay_paths_cloud[0]
 
-        # Cloud: overlay_paths/overlay_bpms ya rellenados por download. Local: overlay_instrument/overlay_vocal + assets_base.
-        use_cloud = bool(overlay_instrument_url or overlay_vocal_url)
+        # Placeholders silenciosos para los 4 inputs cuando falte vocal o instrument
+        if path_cloud_vocal is None:
+            path_cloud_vocal = _create_silent_wav(work_dir, "silent_vocal.wav")
+        if path_cloud_instrument is None:
+            path_cloud_instrument = _create_silent_wav(work_dir, "silent_instrument.wav")
+
+        target_bpm = (analysis_a.bpm + analysis_b.bpm) / 2.0
         try:
             processor_mix(
-                a_proc, b_proc, output_path, cross_d,
+                a_proc,
+                b_proc,
+                path_cloud_vocal,
+                path_cloud_instrument,
+                output_path,
+                cross_d,
                 apply_highpass_a=apply_highpass_a,
-                overlay_paths=overlay_paths if (overlay_paths and use_cloud) else (None if (overlay_instrument or overlay_vocal) else overlay_paths or None),
-                overlay_bpms=overlay_bpms if (overlay_paths and use_cloud) else (None if (overlay_instrument or overlay_vocal) else (overlay_bpms if overlay_paths else None)),
-                overlay_instrument=None if use_cloud else overlay_instrument,
-                overlay_vocal=None if use_cloud else overlay_vocal,
-                assets_base=None if use_cloud else (settings.assets_samples_dir if (overlay_instrument or overlay_vocal) else None),
-                target_bpm=target_bpm,
                 overlay_entry_sec=overlay_entry_sec,
+                target_bpm=target_bpm,
+                vocal_bpm=float(overlay_vocal_bpm or 120),
+                instrument_bpm=float(overlay_instrument_bpm or 120),
             )
         finally:
             if cloud_temp_dir is not None:

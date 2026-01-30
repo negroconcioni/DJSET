@@ -435,6 +435,64 @@ body {
   background: rgba(255, 92, 0, 0.08);
 }
 
+/* Camelot Wheel Score — Pro */
+.camelot-score-panel {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: #0A0A0A;
+  border: 1px solid #1A1A1A;
+  border-radius: 4px;
+}
+
+.camelot-score-panel.is-hidden {
+  display: none;
+  visibility: hidden;
+}
+
+.camelot-score-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #FF5C00;
+  margin: 0 0 0.5rem 0;
+}
+
+.camelot-score-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #F5F5F5;
+}
+
+.camelot-keys { font-weight: 600; color: #FF5C00; }
+.camelot-distance { color: #6B6B6B; }
+.camelot-score-value { font-weight: 500; }
+.camelot-confidence { font-size: 0.75rem; color: #6B6B6B; }
+
+/* Mix transients — envelope de la mezcla (Pro) */
+.mix-transients-wrap {
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid #1A1A1A;
+}
+
+.mix-transients-wrap.is-hidden {
+  display: none;
+  visibility: hidden;
+}
+
+.mix-transients-canvas {
+  width: 100%;
+  max-width: 800px;
+  height: 80px;
+  display: block;
+  background: #000000;
+  border-radius: 4px;
+}
+
 .musical-insight {
   background: #0A0A0A;
   border: 1px solid #1A1A1A;

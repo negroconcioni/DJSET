@@ -276,8 +276,7 @@ def _clamp_strategy(data: dict, analysis_a: SongAnalysis, analysis_b: SongAnalys
         valid_phrases = [p for p in phrase_starts_a if p <= dur_a - 1.0 and p >= outro_a - 30]
         if valid_phrases:
             nearest = min(valid_phrases, key=lambda p: abs(p - ta))
-            if abs(nearest - ta) <= 15.0:
-                ta = nearest
+            ta = nearest  # Obligatorio: alinear con phrase_starts_sec (32 compases)
     out["song_a_transition_start_sec"] = round(ta, 2)
 
     # Tiempo disponible en A para el fade (overlap nativo: no pedir más de lo que hay)
@@ -475,6 +474,7 @@ def get_mix_strategy(
     compatible_overlays: Optional[list[tuple[Path, dict]]] = None,
     available_assets: Optional[dict[str, list[str]]] = None,
     cloud_compatible_overlays: Optional[list[dict[str, Any]]] = None,
+    only_two_songs: bool = False,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
 ) -> MixStrategy:
@@ -516,7 +516,7 @@ def get_mix_strategy(
     user_content += "\n\n"
     user_content += f"Track A: phrase_starts_sec (inicios de frase cada 32 compases) = {phrase_a[-8:] if len(phrase_a) > 8 else phrase_a}. outro_start_sec = {outro_a:.0f}s.\n"
     user_content += f"Track B: phrase_starts_sec = {phrase_b[:8]}.\n\n"
-    user_content += "Tarea: song_a_transition_start_sec debe alinearse con una frase o con la zona de outro de A (>= outro_start_sec). "
+    user_content += "Tarea: song_a_transition_start_sec debe alinearse OBLIGATORIAMENTE con un valor de phrase_starts_sec (múltiplos de 32 compases); si no, con la zona de outro de A (>= outro_start_sec). "
     user_content += "start_offset_bars debe hacer que B entre en inicio de frase. "
     if harmonic_dist <= 1:
         user_content += "Distancia armónica 0 o 1: priorizá transición larga y atmosférica (32–64 barras). "
@@ -569,15 +569,17 @@ def get_mix_strategy(
             if cat not in by_cat:
                 by_cat[cat] = []
             by_cat[cat].append(e)
-        user_content += "\n\nCloud Sampler (URLs) — Tenés estos samples por URL:\n"
-        for cat in ("instruments", "vocals", "percussion"):
+        user_content += "\n\nCloud Sampler (JSON) — Tenés estos samples por URL:\n"
+        for cat in ("instruments", "vocals"):
             entries = by_cat.get(cat, [])
             if not entries:
                 continue
             user_content += f"  {cat}: "
-            user_content += "; ".join(f"{e.get('url', '')} (BPM={e.get('bpm')}, {e.get('key_camelot', '')})" for e in entries[:10])
+            user_content += "; ".join(f"{e.get('url', '')} (name={e.get('name')}, BPM={e.get('bpm')}, key={e.get('key', '')})" for e in entries[:10])
             user_content += "\n"
-        user_content += "Si el reasoning indica baja energía, ELEGÍ una URL de instrument y/o una de vocal (overlay_instrument_url, overlay_vocal_url). Si no, devolvé null.\n"
+        if only_two_songs:
+            user_content += "Remix Live (OBLIGATORIO): Con solo 2 canciones el set debe ser un 'Remix Live'. DEBÉS elegir OBLIGATORIAMENTE al menos 2 samples de la nube: 1 instrumento (overlay_instrument_url) y 1 vocal (overlay_vocal_url) con las URL exactas del JSON. Sin excepción.\n"
+        user_content += "Si el reasoning indica baja energía (o solo 2 canciones), ELEGÍ una URL de instrument y una de vocal (overlay_instrument_url, overlay_vocal_url). Si no, podés devolver null.\n"
         user_content += "Devuelve overlay_instrument_url: URL exacta o null, overlay_vocal_url: URL exacta o null.\n"
 
     system_prompt = get_system_prompt()
@@ -646,9 +648,28 @@ def get_mix_strategy(
         data["overlay_bpms"] = None
         data["overlay_entry_sec"] = None
 
+    # Regla de Oro: si solo 2 canciones, forzar un instrumento y una vocal del JSON para rellenar el breakdown.
+    if only_two_songs and cloud_compatible_overlays:
+        by_cat_force: dict[str, list[dict]] = {}
+        for e in cloud_compatible_overlays:
+            cat = (e.get("category") or "").strip().lower()
+            if cat not in by_cat_force:
+                by_cat_force[cat] = []
+            by_cat_force[cat].append(e)
+        if not data.get("overlay_instrument_url") and by_cat_force.get("instruments"):
+            first = by_cat_force["instruments"][0]
+            data["overlay_instrument_url"] = first.get("url", "").strip()
+            data["overlay_instrument_bpm"] = float(first.get("bpm", 120))
+        if not data.get("overlay_vocal_url") and by_cat_force.get("vocals"):
+            first = by_cat_force["vocals"][0]
+            data["overlay_vocal_url"] = first.get("url", "").strip()
+            data["overlay_vocal_bpm"] = float(first.get("bpm", 120))
+
     # Cloud: resolver overlay_instrument_url / overlay_vocal_url → overlay_instrument_bpm, overlay_vocal_bpm, overlay_entry_sec
+    # Remove unvalidated URLs (not in cloud_compatible_overlays) so render_mix doesn't try to download them.
     if cloud_compatible_overlays and (data.get("overlay_instrument_url") or data.get("overlay_vocal_url")):
         by_url = {str(e.get("url", "")).strip(): e for e in cloud_compatible_overlays if e.get("url")}
+        has_valid_cloud_overlay = False
         for key, bpm_key in [("overlay_instrument_url", "overlay_instrument_bpm"), ("overlay_vocal_url", "overlay_vocal_bpm")]:
             url_val = data.get(key)
             if url_val and isinstance(url_val, str):
@@ -656,13 +677,18 @@ def get_mix_strategy(
             if url_val and url_val in by_url:
                 entry = by_url[url_val]
                 data[bpm_key] = float(entry.get("bpm", 120))
-        ta = float(data.get("song_a_transition_start_sec", 0.0))
-        phrase_starts_a = getattr(analysis_a, "phrase_starts_sec", None) or []
-        if phrase_starts_a and (data.get("overlay_instrument_url") or data.get("overlay_vocal_url")):
-            nearest = min(phrase_starts_a, key=lambda p: abs(p - ta))
-            data["overlay_entry_sec"] = round(nearest, 2)
-        else:
-            data["overlay_entry_sec"] = round(ta, 2)
+                has_valid_cloud_overlay = True
+            elif url_val:
+                data.pop(key, None)
+                data.pop(bpm_key, None)
+        if has_valid_cloud_overlay:
+            ta = float(data.get("song_a_transition_start_sec", 0.0))
+            phrase_starts_a = getattr(analysis_a, "phrase_starts_sec", None) or []
+            if phrase_starts_a:
+                nearest = min(phrase_starts_a, key=lambda p: abs(p - ta))
+                data["overlay_entry_sec"] = round(nearest, 2)
+            else:
+                data["overlay_entry_sec"] = round(ta, 2)
 
     strategy = MixStrategy(**data)
     log_dj_reasoning(strategy, "llm")

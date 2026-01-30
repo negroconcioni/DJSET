@@ -82,7 +82,7 @@ source .venv/bin/activate   # Linux/macOS
 pip install -r requirements.txt
 ```
 
-Nota: `essentia` puede requerir compilación o wheels según la plataforma. Si falla, ver [Essentia install](https://essentia.upf.edu/installing.html).
+Análisis de audio (BPM, energía, tonalidad) se hace con Librosa; no se usa Essentia.
 
 4. **Variables de entorno (opcional)**
 

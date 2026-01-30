@@ -102,6 +102,7 @@ def run_folder_pipeline(self, session_id: str, session_dir_str: str) -> None:
                 compatible_overlays=compatible_overlays,
                 available_assets=available_assets,
                 cloud_compatible_overlays=cloud_compatible_overlays,
+                only_two_songs=(total_segments == 1),
             )
             seg_path = work_dir / f"seg_{idx}.wav"
             tracklist_lines.append("")
@@ -110,6 +111,17 @@ def run_folder_pipeline(self, session_id: str, session_dir_str: str) -> None:
             tracklist_lines.append(f"  Razón: {strategy.reasoning or '—'}")
             if strategy.dj_comment:
                 tracklist_lines.append(f"  DJ: {strategy.dj_comment}")
+
+            job_state = get_job(session_id) or {}
+            job_state["last_dj_comment"] = strategy.dj_comment
+            cloud_used: List[str] = []
+            if getattr(strategy, "overlay_instrument_url", None):
+                cloud_used.append(strategy.overlay_instrument_url)
+            if getattr(strategy, "overlay_vocal_url", None):
+                cloud_used.append(strategy.overlay_vocal_url)
+            if cloud_used:
+                job_state["cloud_samples_used"] = cloud_used
+            set_job(session_id, job_state)
 
             strategy_dict = strategy.model_dump(mode="json")
             if getattr(strategy, "overlay_paths", None):

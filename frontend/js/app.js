@@ -46,6 +46,13 @@ const refs = {
   mainPlayer: document.getElementById('main-player'),
   btnDownloadSet: document.getElementById('btnDownloadSet'),
   btnDownloadTracklist: document.getElementById('btnDownloadTracklist'),
+  camelotScorePanel: document.getElementById('camelotScorePanel'),
+  camelotKeys: document.getElementById('camelotKeys'),
+  camelotDistance: document.getElementById('camelotDistance'),
+  camelotScoreValue: document.getElementById('camelotScoreValue'),
+  camelotConfidence: document.getElementById('camelotConfidence'),
+  mixTransientsWrap: document.getElementById('mixTransientsWrap'),
+  mixTransientsCanvas: document.getElementById('mixTransientsCanvas'),
 };
 
 let sessionId = null;
@@ -119,6 +126,104 @@ function setHarmonicBadge(visible) {
   if (refs.harmonicBadgeB) {
     refs.harmonicBadgeB.classList.toggle('is-visible', !!visible);
     refs.harmonicBadgeB.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Camelot Wheel Score (Pro)
+// ---------------------------------------------------------------------------
+function showCamelotScore(analysisA, analysisB, strategy) {
+  if (!refs.camelotScorePanel || !refs.camelotKeys || !refs.camelotDistance || !refs.camelotScoreValue || !refs.camelotConfidence) return;
+  const dist = strategy?.harmonic_distance;
+  if (analysisA?.key_camelot == null && analysisB?.key_camelot == null && dist == null) {
+    refs.camelotScorePanel.classList.add('is-hidden');
+    refs.camelotScorePanel.setAttribute('aria-hidden', 'true');
+    return;
+  }
+  const keyA = analysisA?.key_camelot ?? '—';
+  const keyB = analysisB?.key_camelot ?? '—';
+  refs.camelotKeys.textContent = `A: ${keyA}  ·  B: ${keyB}`;
+  refs.camelotDistance.textContent = dist != null ? `Distancia: ${dist}` : '—';
+  const score = dist != null ? Math.max(0, 10 - dist) : '—';
+  const label = dist === 0 ? 'Perfect match' : dist === 1 ? 'Compatible' : dist != null ? 'Distant' : '—';
+  refs.camelotScoreValue.textContent = typeof score === 'number' ? `Score: ${score}/10 ${label}` : score;
+  const confA = analysisA?.key_confidence != null ? Math.round(analysisA.key_confidence * 100) : null;
+  const confB = analysisB?.key_confidence != null ? Math.round(analysisB.key_confidence * 100) : null;
+  if (confA != null || confB != null) {
+    refs.camelotConfidence.textContent = `Confianza key: A ${confA ?? '—'}%  ·  B ${confB ?? '—'}%`;
+    refs.camelotConfidence.style.display = '';
+  } else {
+    refs.camelotConfidence.textContent = '';
+    refs.camelotConfidence.style.display = 'none';
+  }
+  refs.camelotScorePanel.classList.remove('is-hidden');
+  refs.camelotScorePanel.setAttribute('aria-hidden', 'false');
+}
+
+function showRemixLiveBadge(cloudSamplesUsed) {
+  if (!refs.camelotScorePanel || !refs.camelotKeys) return;
+  if (!cloudSamplesUsed || !cloudSamplesUsed.length) return;
+  refs.camelotKeys.textContent = `Remix Live · ${cloudSamplesUsed.length} cloud sample(s)`;
+  refs.camelotDistance.textContent = '';
+  refs.camelotScoreValue.textContent = 'Set con overlays de la nube';
+  refs.camelotConfidence.textContent = '';
+  refs.camelotConfidence.style.display = 'none';
+  refs.camelotScorePanel.classList.remove('is-hidden');
+  refs.camelotScorePanel.setAttribute('aria-hidden', 'false');
+}
+
+// ---------------------------------------------------------------------------
+// Mix transients (envelope de la mezcla — Pro)
+// ---------------------------------------------------------------------------
+async function drawMixTransients(setUrl) {
+  if (!refs.mixTransientsCanvas || !refs.mixTransientsWrap || !setUrl || !setUrl.startsWith('http')) return;
+  try {
+    const base = window.location.origin;
+    const url = setUrl.startsWith('http') ? setUrl : base + setUrl;
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return;
+    const arrayBuffer = await res.arrayBuffer();
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const decoded = await audioContext.decodeAudioData(arrayBuffer);
+    const channel = decoded.length > 0 ? decoded.getChannelData(0) : new Float32Array(0);
+    const sampleRate = decoded.sampleRate;
+    const windowSec = 0.1;
+    const windowSamples = Math.floor(sampleRate * windowSec);
+    const numWindows = Math.floor(channel.length / windowSamples) || 1;
+    const rms = [];
+    for (let i = 0; i < numWindows; i++) {
+      let sum = 0;
+      const start = i * windowSamples;
+      const end = Math.min(start + windowSamples, channel.length);
+      for (let j = start; j < end; j++) sum += channel[j] * channel[j];
+      rms.push(Math.sqrt(sum / (end - start)) || 0);
+    }
+    const canvas = refs.mixTransientsCanvas;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, w, h);
+    if (rms.length < 2) return;
+    const maxRms = Math.max(...rms, 1e-6);
+    ctx.strokeStyle = '#FF5C00';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < rms.length; i++) {
+      const x = (i / (rms.length - 1)) * w;
+      const y = h - (rms[i] / maxRms) * (h - 4) - 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    refs.mixTransientsWrap.classList.remove('is-hidden');
+    refs.mixTransientsWrap.setAttribute('aria-hidden', 'false');
+  } catch {
+    if (refs.mixTransientsWrap) {
+      refs.mixTransientsWrap.classList.add('is-hidden');
+      refs.mixTransientsWrap.setAttribute('aria-hidden', 'true');
+    }
   }
 }
 
@@ -301,6 +406,7 @@ async function runGenerate() {
     const b = st.analysis_b ?? {};
     const s = st.strategy ?? {};
     fillBadges(a, b);
+    showCamelotScore(a, b, s);
 
     const harmonicDist = s.harmonic_distance;
     const isHarmonicMatch = harmonicDist !== undefined && harmonicDist !== null && harmonicDist <= 1;
@@ -484,6 +590,7 @@ async function runProcessFolder(files) {
     const fullSetUrl = setUrl.startsWith('http') ? setUrl : base + setUrl;
     const fullTracklistUrl = tracklistUrl.startsWith('http') ? tracklistUrl : base + tracklistUrl;
     showFolderDownloadBlock(true, setUrl, tracklistUrl);
+    showRemixLiveBadge(st.cloud_samples_used);
     if (refs.resultContainer) {
       refs.resultContainer.classList.remove('is-hidden');
       refs.resultContainer.setAttribute('aria-hidden', 'false');
@@ -496,6 +603,13 @@ async function runProcessFolder(files) {
     }
     if (refs.btnDownloadTracklist) {
       refs.btnDownloadTracklist.href = fullTracklistUrl;
+    }
+    drawMixTransients(fullSetUrl);
+    if (st.dj_comment) {
+      log('> DJ: ' + st.dj_comment, 'sys');
+    }
+    if (st.cloud_samples_used && st.cloud_samples_used.length) {
+      log('> Cloud samples descargados: ' + st.cloud_samples_used.join(', '), 'sys');
     }
     log('> System: Set listo. Descargá el WAV y el tracklist.');
   } catch (err) {

@@ -594,6 +594,8 @@ def get_process_folder_status(session_id: str) -> dict:
         "set_url": f"/process-folder/{session_id}/set" if job.get("status") == "ready" else None,
         "tracklist_url": f"/process-folder/{session_id}/tracklist" if job.get("status") == "ready" else None,
         "error": job.get("error"),
+        "dj_comment": job.get("last_dj_comment"),
+        "cloud_samples_used": job.get("cloud_samples_used"),
     }
 
 
