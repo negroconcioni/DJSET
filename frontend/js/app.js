@@ -42,6 +42,10 @@ const refs = {
   folderDownloadBlock: document.getElementById('folder-download-block'),
   downloadSetLink: document.getElementById('downloadSetLink'),
   downloadTracklistLink: document.getElementById('downloadTracklistLink'),
+  resultContainer: document.getElementById('result-container'),
+  mainPlayer: document.getElementById('main-player'),
+  btnDownloadSet: document.getElementById('btnDownloadSet'),
+  btnDownloadTracklist: document.getElementById('btnDownloadTracklist'),
 };
 
 let sessionId = null;
@@ -426,6 +430,10 @@ async function runProcessFolder(files) {
   refs.folderZone?.classList.add('has-folder');
   refs.folderName.textContent = `${list.length} archivos`;
   showFolderDownloadBlock(false);
+  if (refs.resultContainer) {
+    refs.resultContainer.classList.add('is-hidden');
+    refs.resultContainer.setAttribute('aria-hidden', 'true');
+  }
   showProgressContainer(true);
   setDeckPulse(true);
   refs.progressBarFill.style.width = '0%';
@@ -470,9 +478,25 @@ async function runProcessFolder(files) {
     }
 
     refs.progressStatus.textContent = 'Listo.';
+    const base = window.location.origin;
     const setUrl = st.set_url ?? `/process-folder/${folderSessionId}/set`;
     const tracklistUrl = st.tracklist_url ?? `/process-folder/${folderSessionId}/tracklist`;
+    const fullSetUrl = setUrl.startsWith('http') ? setUrl : base + setUrl;
+    const fullTracklistUrl = tracklistUrl.startsWith('http') ? tracklistUrl : base + tracklistUrl;
     showFolderDownloadBlock(true, setUrl, tracklistUrl);
+    if (refs.resultContainer) {
+      refs.resultContainer.classList.remove('is-hidden');
+      refs.resultContainer.setAttribute('aria-hidden', 'false');
+    }
+    if (refs.mainPlayer) {
+      refs.mainPlayer.src = fullSetUrl;
+    }
+    if (refs.btnDownloadSet) {
+      refs.btnDownloadSet.href = fullSetUrl;
+    }
+    if (refs.btnDownloadTracklist) {
+      refs.btnDownloadTracklist.href = fullTracklistUrl;
+    }
     log('> System: Set listo. Descargá el WAV y el tracklist.');
   } catch (err) {
     setDeckPulse(false);
@@ -512,6 +536,10 @@ function init() {
   setProgressVisible(false);
   showProgressContainer(false);
   showFolderDownloadBlock(false);
+  if (refs.resultContainer) {
+    refs.resultContainer.classList.add('is-hidden');
+    refs.resultContainer.setAttribute('aria-hidden', 'true');
+  }
 }
 
 init();

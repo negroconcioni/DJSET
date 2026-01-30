@@ -1,0 +1,23 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/rafaelreis-hotmart/Audio-Samples/master/samples/vocal.wav",
+    "category": "vocals",
+    "bpm": 120,
+    "key": "C major",
+    "key_camelot": "8A"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/rafaelreis-hotmart/Audio-Samples/master/samples/drums.wav",
+    "category": "percussion",
+    "bpm": 120,
+    "key": "C major",
+    "key_camelot": "8A"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/rafaelreis-hotmart/Audio-Samples/master/samples/drums.wav",
+    "category": "instruments",
+    "bpm": 120,
+    "key": "C major",
+    "key_camelot": "8A"
+  }
+]

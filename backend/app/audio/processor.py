@@ -3,6 +3,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Union
 
+from ..sample_library import get_sample_metadata
+
 
 def render_professional_mix(
     path_a: Union[str, Path],
@@ -13,31 +15,47 @@ def render_professional_mix(
     apply_highpass_a: bool = False,
     overlay_paths: Optional[List[Union[str, Path]]] = None,
     overlay_bpms: Optional[List[float]] = None,
+    overlay_instrument: Optional[str] = None,
+    overlay_vocal: Optional[str] = None,
+    assets_base: Optional[Union[str, Path]] = None,
     target_bpm: Optional[float] = None,
     overlay_entry_sec: Optional[float] = None,
 ) -> Path:
     """
     Combina los dos tracks principales con acrossfade; suma los overlays elegidos por la IA con amix.
-    - Recibe los nombres/rutas de archivos elegidos (overlay_instrument, overlay_vocal) en overlay_paths.
-    - FFmpeg: [0:a][1:a] acrossfade -> [ab]; luego [ab] + overlays con amix (suma a la mezcla de los dos tracks).
-    - Sincronización total (emula Sync Opus Quad): filtro atempo en cada sample para estirar/encoger hasta
-      coincidir con el BPM exacto del set (target_bpm / overlay_bpm). No se pegan samples sin procesar.
-    - overlay_entry_sec: adelay para que la trompeta/vocal entren en inicio de frase (32 compases).
+    - overlay_instrument / overlay_vocal: nombres de archivo; si se pasan con assets_base, se resuelven a paths y BPM.
+    - FFmpeg: [0:a][1:a] acrossfade -> [ab]; luego [ab] + overlays con amix=inputs=X:duration=first.
+    - Sync (Opus Quad): atempo por sample (target_bpm / overlay_bpm) para que no suenen fuera de tiempo ni desafinados.
+    - overlay_entry_sec: adelay para entrada en inicio de frase (32 compases).
     - loudnorm al final (Loudness Pro).
     """
     path_a = Path(path_a)
     path_b = Path(path_b)
     output_path = Path(output_path)
-    overlays = [Path(p) for p in (overlay_paths or []) if p]
-    bpms = list(overlay_bpms or [])
+    overlays: List[Path] = []
+    bpms: List[float] = []
+    if overlay_instrument or overlay_vocal:
+        base = Path(assets_base) if assets_base else Path()
+        for name, cat in [(overlay_instrument, "instruments"), (overlay_vocal, "vocals")]:
+            if not name or not name.strip():
+                continue
+            p = base / cat / name.strip()
+            if p.exists():
+                overlays.append(p)
+                meta = get_sample_metadata(p)
+                bpms.append(float(meta.get("bpm", 120.0)))
+    if not overlays and overlay_paths:
+        overlays = [Path(p) for p in overlay_paths if p]
+        bpms = list(overlay_bpms or [])
     if len(bpms) != len(overlays):
-        bpms = [0.0] * len(overlays)  # sin atempo si faltan BPM
+        bpms = [120.0] * len(overlays) if overlays else []
     target_bpm = float(target_bpm or 0.0)
     entry_sec = max(0.0, float(overlay_entry_sec or 0.0))
     entry_ms = int(round(entry_sec * 1000))
 
     cross_d = round(float(cross_d), 3)
-    cross_d = max(0.5, min(cross_d, 120.0))
+    # No forzar mínimo 0.5: render_mix ya aplica regla 20% (tracks cortos pueden quedar < 0.5s). Solo cap 120s y piso de seguridad.
+    cross_d = max(0.1, min(cross_d, 120.0))
 
     # Opus Quad: curvas sinusoidales hsin
     across = f"acrossfade=d={cross_d}:curve1=hsin:curve2=hsin"

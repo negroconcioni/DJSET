@@ -414,6 +414,75 @@ body {
 }
 
 // ---------------------------------------------------------------------------
+// Result container — reproductor y botones de descarga (folder set listo)
+// ---------------------------------------------------------------------------
+.result-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+
+  &.is-hidden {
+    display: none;
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  &:not(.is-hidden) {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.result-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 0.75rem 0;
+}
+
+.main-player {
+  width: 100%;
+  margin-bottom: 1rem;
+  accent-color: $orange-xapo;
+  border-radius: 4px;
+  background: $bg-black;
+  border: 1px solid $border;
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-opus {
+  padding: 0.65rem 1.1rem;
+  font-family: $font-family;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: $tracking-tight;
+  color: $bg-black;
+  background: $orange-xapo;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+  display: inline-block;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Master player — oculto hasta listo, fade-in suave, onda naranja
 // ---------------------------------------------------------------------------
 .master-player {

@@ -129,3 +129,29 @@ class MixStrategy(BaseModel):
         ge=0,
         description="Segundo donde entran los overlays; debe coincidir con phrase_starts_sec (inicio de frase 32 compases).",
     )
+    overlay_instrument: Optional[str] = Field(
+        default=None,
+        description="Nombre de archivo del sample de instrumento (en assets/samples/instruments) para amix.",
+    )
+    overlay_vocal: Optional[str] = Field(
+        default=None,
+        description="Nombre de archivo del sample vocal (en assets/samples/vocals) para amix.",
+    )
+    overlay_instrument_url: Optional[str] = Field(
+        default=None,
+        description="URL del sample de instrumento (cloud); se descarga a temp antes de FFmpeg.",
+    )
+    overlay_vocal_url: Optional[str] = Field(
+        default=None,
+        description="URL del sample vocal (cloud); se descarga a temp antes de FFmpeg.",
+    )
+    overlay_instrument_bpm: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="BPM del overlay instrument (cloud) para atempo.",
+    )
+    overlay_vocal_bpm: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="BPM del overlay vocal (cloud) para atempo.",
+    )

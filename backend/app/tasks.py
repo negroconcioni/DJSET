@@ -16,6 +16,8 @@ from .sequencer import analyze_tracks, build_roadmap, sort_playlist
 from .admin_config import get_allow_instruments_ai, get_allow_vocals_ai
 from .decision import get_mix_strategy
 from .sample_library import get_compatible_samples
+from .utils.scanner import scan_assets
+from .audio.cloud_assets import get_cloud_compatible_samples
 from .audio.analyzer import get_audio_metadata
 from .audio_analyzer import analyze_track_structure
 
@@ -73,8 +75,10 @@ def run_folder_pipeline(self, session_id: str, session_dir_str: str) -> None:
                 track_structure_b = analyze_track_structure(path_b, sr=settings.default_sr)
             except Exception:
                 track_structure_a = track_structure_b = None
-            # Sampler Manager: antes de la IA, obtener samples compatibles con BPM/Key del segmento
+            # Scanner de assets: antes de la IA, listar samples disponibles (local + cloud) e inyectar en el prompt (Productor Opus Quad)
+            available_assets = scan_assets() if (get_allow_instruments_ai() or get_allow_vocals_ai()) else None
             compatible_overlays = None
+            cloud_compatible_overlays = None
             if get_allow_instruments_ai() or get_allow_vocals_ai():
                 avg_bpm = (analysis_a.bpm + analysis_b.bpm) / 2.0
                 camelot_mix = (getattr(analysis_a, "key_camelot", None) or getattr(analysis_b, "key_camelot", None) or "").strip() or "8A"
@@ -87,12 +91,17 @@ def run_folder_pipeline(self, session_id: str, session_dir_str: str) -> None:
                     compatible_overlays = get_compatible_samples(
                         avg_bpm, camelot_mix, categories, bpm_tolerance=5.0, max_camelot_distance=1
                     )
+                    cloud_compatible_overlays = get_cloud_compatible_samples(
+                        avg_bpm, camelot_mix, categories, bpm_tolerance=5.0, max_camelot_distance=1
+                    )
             strategy = get_mix_strategy(
                 analysis_a, analysis_b,
                 dj_style_prompt=None,
                 audio_metadata_a=metadata_a, audio_metadata_b=metadata_b,
                 track_structure_a=track_structure_a, track_structure_b=track_structure_b,
                 compatible_overlays=compatible_overlays,
+                available_assets=available_assets,
+                cloud_compatible_overlays=cloud_compatible_overlays,
             )
             seg_path = work_dir / f"seg_{idx}.wav"
             tracklist_lines.append("")
@@ -105,6 +114,14 @@ def run_folder_pipeline(self, session_id: str, session_dir_str: str) -> None:
             strategy_dict = strategy.model_dump(mode="json")
             if getattr(strategy, "overlay_paths", None):
                 strategy_dict["overlay_paths"] = [str(p) for p in strategy.overlay_paths]
+            if getattr(strategy, "overlay_instrument_url", None):
+                strategy_dict["overlay_instrument_url"] = strategy.overlay_instrument_url
+            if getattr(strategy, "overlay_vocal_url", None):
+                strategy_dict["overlay_vocal_url"] = strategy.overlay_vocal_url
+            if getattr(strategy, "overlay_instrument_bpm", None) is not None:
+                strategy_dict["overlay_instrument_bpm"] = strategy.overlay_instrument_bpm
+            if getattr(strategy, "overlay_vocal_bpm", None) is not None:
+                strategy_dict["overlay_vocal_bpm"] = strategy.overlay_vocal_bpm
         segment_tasks.append(
             render_segment.s(
                 session_id,

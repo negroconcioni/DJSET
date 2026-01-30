@@ -473,6 +473,8 @@ def get_mix_strategy(
     track_structure_a: Optional[dict[str, Any]] = None,
     track_structure_b: Optional[dict[str, Any]] = None,
     compatible_overlays: Optional[list[tuple[Path, dict]]] = None,
+    available_assets: Optional[dict[str, list[str]]] = None,
+    cloud_compatible_overlays: Optional[list[dict[str, Any]]] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
 ) -> MixStrategy:
@@ -480,6 +482,8 @@ def get_mix_strategy(
     Decide transition strategy: LLM (if API key) o heurísticas.
     audio_metadata_a/b: dict con bpm, duration, energy_peaks (desde get_audio_metadata).
     compatible_overlays: si el Sequencer ya llamó a get_compatible_samples, pasá la lista aquí; si no, se calcula dentro.
+    available_assets: resultado del scanner (instruments, vocals); el Sequencer lo pasa antes de pedir la decisión al LLM.
+    cloud_compatible_overlays: samples por URL (cloud_assets); el Sequencer pasa los compatibles con BPM/Key para que la IA elija.
     """
     intent = style_prompt_to_intent(dj_style_prompt)
     api_key = api_key or settings.openai_api_key
@@ -544,16 +548,37 @@ def get_mix_strategy(
             compatible_overlays = get_compatible_samples(
                 avg_bpm, camelot_mix, categories, bpm_tolerance=5.0, max_camelot_distance=1
             )
+    if available_assets:
+        user_content += "\n\nSampler (Opus Quad) — Tenés estos recursos:\n"
+        user_content += "  instruments: " + (", ".join(available_assets.get("instruments", [])) or "(ninguno)") + "\n"
+        user_content += "  vocals: " + (", ".join(available_assets.get("vocals", [])) or "(ninguno)") + "\n"
+        user_content += "Si el reasoning indica baja energía, ELEGÍ uno de cada categoría (overlay_instrument, overlay_vocal con el filename). Si no, podés devolver null.\n"
+        user_content += "Devuelve overlay_instrument: filename o null, overlay_vocal: filename o null.\n"
+        user_content += "El punto donde entra el overlay debe coincidir con un inicio de frase (phrase_starts_sec); se usará el mismo que song_a_transition_start_sec.\n"
     if compatible_overlays:
         low_energy = energy_a_10 <= 4 or energy_b_10 <= 4
         harmonic_transition = harmonic_dist <= 1
-        force_overlay = low_energy or harmonic_transition
-        user_content += "\n\nSampler Manager — Tenés estos instrumentos y vocales disponibles:\n"
-        for path, meta in compatible_overlays[:20]:
-            user_content += f"  - {path.name} (BPM={meta.get('bpm', '—')}, {meta.get('key_camelot', '—')}, {meta.get('category', '')})\n"
-        user_content += "Si la energía es baja, ELEGÍ uno obligatoriamente (overlay_instrument o overlay_vocal con el filename). Si no, podés devolver null.\n"
-        user_content += "Devuelve overlay_instrument: filename o null, overlay_vocal: filename o null.\n"
-        user_content += "El punto donde entra el overlay debe coincidir con un inicio de frase (phrase_starts_sec); se usará el mismo que song_a_transition_start_sec.\n"
+        user_content += "\nSamples compatibles (BPM/Key) para elegir: "
+        for path, meta in compatible_overlays[:12]:
+            user_content += f"{path.name} (BPM={meta.get('bpm')}, {meta.get('key_camelot')}, {meta.get('category', '')}); "
+        user_content += "\n"
+    if cloud_compatible_overlays:
+        by_cat: dict[str, list[dict]] = {}
+        for e in cloud_compatible_overlays:
+            cat = (e.get("category") or "").strip().lower()
+            if cat not in by_cat:
+                by_cat[cat] = []
+            by_cat[cat].append(e)
+        user_content += "\n\nCloud Sampler (URLs) — Tenés estos samples por URL:\n"
+        for cat in ("instruments", "vocals", "percussion"):
+            entries = by_cat.get(cat, [])
+            if not entries:
+                continue
+            user_content += f"  {cat}: "
+            user_content += "; ".join(f"{e.get('url', '')} (BPM={e.get('bpm')}, {e.get('key_camelot', '')})" for e in entries[:10])
+            user_content += "\n"
+        user_content += "Si el reasoning indica baja energía, ELEGÍ una URL de instrument y/o una de vocal (overlay_instrument_url, overlay_vocal_url). Si no, devolvé null.\n"
+        user_content += "Devuelve overlay_instrument_url: URL exacta o null, overlay_vocal_url: URL exacta o null.\n"
 
     system_prompt = get_system_prompt()
     response = client.chat.completions.create(
@@ -596,7 +621,9 @@ def get_mix_strategy(
                 path, meta = by_name[name]
                 overlay_paths_resolved.append(path)
                 overlay_bpms_resolved.append(float(meta.get("bpm", 120.0)))
-            data.pop(key, None)
+                data[key] = name
+            elif name:
+                data.pop(key, None)  # remove unresolved filename so strategy only has overlays we actually use
         # Si energía baja o armónica 0–1 y la IA devolvió null en ambos, forzar al menos un overlay
         low_energy = energy_a_10 <= 4 or energy_b_10 <= 4
         harmonic_transition = harmonic_dist <= 1
@@ -618,6 +645,24 @@ def get_mix_strategy(
         data["overlay_paths"] = None
         data["overlay_bpms"] = None
         data["overlay_entry_sec"] = None
+
+    # Cloud: resolver overlay_instrument_url / overlay_vocal_url → overlay_instrument_bpm, overlay_vocal_bpm, overlay_entry_sec
+    if cloud_compatible_overlays and (data.get("overlay_instrument_url") or data.get("overlay_vocal_url")):
+        by_url = {str(e.get("url", "")).strip(): e for e in cloud_compatible_overlays if e.get("url")}
+        for key, bpm_key in [("overlay_instrument_url", "overlay_instrument_bpm"), ("overlay_vocal_url", "overlay_vocal_bpm")]:
+            url_val = data.get(key)
+            if url_val and isinstance(url_val, str):
+                url_val = url_val.strip()
+            if url_val and url_val in by_url:
+                entry = by_url[url_val]
+                data[bpm_key] = float(entry.get("bpm", 120))
+        ta = float(data.get("song_a_transition_start_sec", 0.0))
+        phrase_starts_a = getattr(analysis_a, "phrase_starts_sec", None) or []
+        if phrase_starts_a and (data.get("overlay_instrument_url") or data.get("overlay_vocal_url")):
+            nearest = min(phrase_starts_a, key=lambda p: abs(p - ta))
+            data["overlay_entry_sec"] = round(nearest, 2)
+        else:
+            data["overlay_entry_sec"] = round(ta, 2)
 
     strategy = MixStrategy(**data)
     log_dj_reasoning(strategy, "llm")
