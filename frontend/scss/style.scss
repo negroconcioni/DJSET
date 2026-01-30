@@ -1,0 +1,772 @@
+// ---------------------------------------------------------------------------
+// Xapo-style variables
+// ---------------------------------------------------------------------------
+$orange-xapo: #FF5C00;
+$bg-black: #000000;
+$surface: #0A0A0A;
+$border: #1A1A1A;
+$text: #F5F5F5;
+$muted: #6B6B6B;
+$success: #22c55e;
+$error: #ef4444;
+
+$font-family: 'Inter', system-ui, -apple-system, sans-serif;
+$tracking-tight: 0.02em;
+$tracking-wide: 0.12em;
+$tracking-wider: 0.2em;
+
+// ---------------------------------------------------------------------------
+// Reset & base
+// ---------------------------------------------------------------------------
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: $font-family;
+  background: $bg-black;
+  color: $text;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+}
+
+// ---------------------------------------------------------------------------
+// Header — logo minimalista OPUS AI
+// ---------------------------------------------------------------------------
+.site-header {
+  margin-bottom: 2.5rem;
+}
+
+.logo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wider;
+  text-transform: uppercase;
+  color: $text;
+}
+
+// ---------------------------------------------------------------------------
+// Main layout
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// App layout — sidebar + main
+// ---------------------------------------------------------------------------
+.app-layout {
+  display: flex;
+  width: 100%;
+  max-width: 960px;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 720px) {
+  .app-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sidebar {
+    width: 100%;
+    border-bottom: 1px solid $border;
+    padding-bottom: 1rem;
+  }
+}
+
+.sidebar {
+  flex-shrink: 0;
+  width: 180px;
+  padding: 0.75rem 0;
+}
+
+.sidebar-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 0.75rem 0;
+}
+
+.session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid $border;
+  font-size: 0.75rem;
+  color: $muted;
+}
+
+.session-item:last-child {
+  border-bottom: none;
+}
+
+.session-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-session-play {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: $border;
+  color: $text;
+  font-size: 0.65rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-session-play:hover {
+  background: $orange-xapo;
+  color: $bg-black;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  max-width: 720px;
+}
+
+// ---------------------------------------------------------------------------
+// Upload hub — dos slots con bordes finos, iluminan en naranja al recibir
+// ---------------------------------------------------------------------------
+.upload-hub {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.upload-slot {
+  border: 1px solid $border;
+  border-radius: 4px;
+  padding: 1.25rem;
+  background: $surface;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: darken($muted, 15%);
+  }
+
+  &.has-file {
+    border-color: $orange-xapo;
+    box-shadow: 0 0 0 1px rgba($orange-xapo, 0.15);
+  }
+}
+
+.upload-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.upload-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin-bottom: 0.5rem;
+}
+
+.upload-filename {
+  display: block;
+  font-size: 0.8rem;
+  color: $text;
+  margin-bottom: 0.75rem;
+  min-height: 1.25em;
+  cursor: pointer;
+
+  .upload-slot:not(.has-file) & {
+    color: $muted;
+  }
+}
+
+.upload-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 0.7rem;
+  color: $muted;
+  letter-spacing: $tracking-tight;
+
+  .badge-value {
+    font-weight: 600;
+    color: $text;
+  }
+
+  .upload-slot.has-file & .badge-value.filled {
+    color: $orange-xapo;
+  }
+}
+
+// Harmonic Match badge (Camelot compatible)
+.harmonic-badge {
+  display: none;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $orange-xapo;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+  border-top: 1px solid $border;
+}
+
+.harmonic-badge.is-visible {
+  display: block;
+}
+
+// Sparkline — línea de energía del track
+.sparkline-wrap {
+  display: none;
+  margin-top: 0.5rem;
+  height: 24px;
+  border-top: 1px solid $border;
+}
+
+.sparkline-wrap.is-visible {
+  display: block;
+}
+
+.sparkline {
+  width: 100%;
+  height: 24px;
+  display: block;
+  background: $bg-black;
+  border-radius: 2px;
+}
+
+// ---------------------------------------------------------------------------
+// AI Console — input tipo búsqueda premium + Musical Insight Terminal
+// ---------------------------------------------------------------------------
+.ai-console {
+  margin-bottom: 2rem;
+}
+
+.console-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.prompt-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: $font-family;
+  font-size: 0.9rem;
+  color: $text;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  letter-spacing: $tracking-tight;
+  transition: border-color 0.2s ease;
+
+  &::placeholder {
+    color: $muted;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $muted;
+  }
+}
+
+.btn-generate {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: $font-family;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: $tracking-tight;
+  color: $text;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+
+  &:hover:not(:disabled) {
+    border-color: $orange-xapo;
+    background: rgba($orange-xapo, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// Barra de progreso fina (Cargando / Procesando)
+.progress-bar {
+  height: 2px;
+  background: $border;
+  border-radius: 1px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+
+  &[aria-hidden="true"] {
+    display: none;
+  }
+
+  &::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 30%;
+    background: $orange-xapo;
+    animation: progress-indeterminate 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.musical-insight {
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  padding: 1rem;
+  min-height: 120px;
+}
+
+.insight-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 0.5rem 0;
+}
+
+.insight-body {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: $muted;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.insight-body .line {
+  margin: 0.25rem 0;
+}
+
+// System logs: gris oscuro, baja opacidad
+.insight-body .line.sys {
+  color: $muted;
+  opacity: 0.7;
+}
+
+// Decisiones de la IA: naranja brillante para que resalten
+.insight-body .line.key {
+  color: $orange-xapo;
+  font-weight: 600;
+  opacity: 1;
+}
+
+.insight-body .line.dj {
+  color: $orange-xapo;
+  font-weight: 500;
+  opacity: 1;
+}
+
+.insight-body .line.reason {
+  color: lighten($muted, 20%);
+  opacity: 0.85;
+}
+
+.insight-body .line.err {
+  color: $error;
+  opacity: 1;
+}
+
+// ---------------------------------------------------------------------------
+// Master player — oculto hasta listo, fade-in suave, onda naranja
+// ---------------------------------------------------------------------------
+.master-player {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  margin-bottom: 2rem;
+
+  &.is-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  &[aria-hidden="true"] {
+    display: none;
+  }
+
+  &[aria-hidden="false"] {
+    display: block;
+  }
+}
+
+.master-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 0.5rem 0;
+}
+
+.waveform-container {
+  height: 80px;
+  border-radius: 4px;
+  background: $bg-black;
+  border: 1px solid $border;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.master-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  letter-spacing: $tracking-tight;
+  color: $muted;
+  margin-bottom: 0.75rem;
+}
+
+.master-filename {
+  color: $text;
+}
+
+.master-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.master-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn-playpause {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: $text;
+  color: $bg-black;
+  border: none;
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px rgba($orange-xapo, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-download {
+  padding: 0.65rem 1.1rem;
+  font-family: $font-family;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: $tracking-tight;
+  color: $bg-black;
+  background: $orange-xapo;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin — The Lab (misma estética Opus / Xapo: #000, #FF5C00, bordes sutiles)
+// ---------------------------------------------------------------------------
+body.page-admin {
+  padding-bottom: 2rem;
+}
+
+.admin-header-nav {
+  font-size: 0.75rem;
+  letter-spacing: $tracking-tight;
+  color: $muted;
+  text-decoration: none;
+  margin-left: auto;
+
+  &:hover {
+    color: $orange-xapo;
+  }
+}
+
+.admin-main {
+  max-width: 720px;
+  width: 100%;
+}
+
+// Slot de instrucciones maestras — textarea con borde naranja
+.lab-prompt {
+  margin-bottom: 2rem;
+}
+
+.lab-prompt-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin-bottom: 0.5rem;
+}
+
+.lab-prompt-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 1rem;
+  font-family: $font-family;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: $text;
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  resize: vertical;
+  letter-spacing: $tracking-tight;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder {
+    color: $muted;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $orange-xapo;
+    box-shadow: 0 0 0 1px rgba($orange-xapo, 0.15);
+  }
+}
+
+// Configuración de presets — fila de tarjetas estilo Decks A/B
+.lab-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.lab-deck {
+  border: 1px solid $border;
+  border-radius: 4px;
+  padding: 1.25rem;
+  background: $surface;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: darken($muted, 15%);
+  }
+}
+
+.lab-deck-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 1rem 0;
+}
+
+.lab-slider-row {
+  margin-bottom: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.lab-slider-label {
+  display: block;
+  font-size: 0.7rem;
+  color: $muted;
+  letter-spacing: $tracking-tight;
+  margin-bottom: 0.35rem;
+}
+
+.lab-slider {
+  width: 100%;
+  height: 6px;
+  accent-color: $orange-xapo;
+  background: $border;
+  border-radius: 3px;
+}
+
+.lab-slider-value {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: $text;
+  margin-left: 0.5rem;
+}
+
+.lab-bars-row {
+  margin-top: 0.75rem;
+}
+
+.lab-bars-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.lab-bars-options input[type="radio"] {
+  display: none;
+}
+
+.lab-bars-options label {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  color: $muted;
+  background: $bg-black;
+  border: 1px solid $border;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    border-color: $muted;
+  }
+}
+
+.lab-bars-options input:checked + label {
+  border-color: $orange-xapo;
+  color: $orange-xapo;
+}
+
+// Terminal de logs — DEBUG CONSOLE (replica Musical Insight)
+.lab-debug {
+  background: $surface;
+  border: 1px solid $border;
+  border-radius: 4px;
+  padding: 1rem;
+  min-height: 140px;
+  margin-bottom: 2rem;
+}
+
+.lab-debug-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: $tracking-wide;
+  text-transform: uppercase;
+  color: $muted;
+  margin: 0 0 0.5rem 0;
+}
+
+.lab-debug-body {
+  font-size: 0.75rem;
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
+  line-height: 1.45;
+  color: $muted;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.lab-debug-body .line {
+  margin: 0.2rem 0;
+}
+
+.lab-debug-body .line.in {
+  color: lighten($muted, 10%);
+}
+
+.lab-debug-body .line.out {
+  color: $orange-xapo;
+}
+
+.lab-debug-body .line.err {
+  color: $error;
+}
+
+// Botón principal — SAVE CONFIGURATION & TRAIN (naranja sólido)
+.lab-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-save-train {
+  padding: 0.75rem 1.25rem;
+  font-family: $font-family;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: $tracking-tight;
+  color: $bg-black;
+  background: $orange-xapo;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.admin-status-msg {
+  font-size: 0.8rem;
+  color: $muted;
+
+  &.ok {
+    color: $success;
+  }
+
+  &.err {
+    color: $error;
+  }
+}

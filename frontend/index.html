@@ -3,248 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoMix AI</title>
-  <style>
-    :root {
-      --bg: #0d0d0f;
-      --surface: #16161a;
-      --border: #2a2a2e;
-      --text: #e4e4e7;
-      --muted: #71717a;
-      --accent: #7c3aed;
-      --accent-hover: #8b5cf6;
-      --success: #22c55e;
-      --error: #ef4444;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 2rem 1rem;
-    }
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .sub {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 2rem;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      width: 100%;
-      max-width: 420px;
-      margin-bottom: 1rem;
-    }
-    .card h2 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin: 0 0 0.75rem 0;
-    }
-    .row {
-      display: flex;
-      gap: 1rem;
-      align-items: stretch;
-      flex-wrap: wrap;
-    }
-    .row .card { flex: 1; min-width: 200px; }
-    label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
-    }
-    input[type="file"] {
-      display: none;
-    }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: background 0.15s;
-    }
-    .btn-upload {
-      background: var(--border);
-      color: var(--text);
-      width: 100%;
-    }
-    .btn-upload:hover { background: #3f3f46; }
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      width: 100%;
-      margin-top: 0.5rem;
-    }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-download {
-      background: var(--success);
-      color: white;
-      width: 100%;
-      margin-top: 0.5rem;
-    }
-    .btn-download:hover { filter: brightness(1.1); }
-    .file-name {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 0.35rem;
-      min-height: 1.2em;
-    }
-    .status {
-      font-size: 0.85rem;
-      margin-top: 1rem;
-      padding: 0.75rem;
-      border-radius: 8px;
-      background: rgba(124, 58, 237, 0.15);
-      border: 1px solid rgba(124, 58, 237, 0.3);
-    }
-    .status.error { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); }
-    .status pre { margin: 0; font-size: 0.75rem; overflow: auto; max-height: 120px; }
-    #downloadBlock { display: none; }
-  </style>
+  <title>OPUS AI — Master Mix</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <h1>AutoMix AI</h1>
-  <p class="sub">Subí dos canciones. El sistema analiza BPM, key y energía; un LLM elige la transición y se genera la mezcla.</p>
+  <header class="site-header">
+    <h1 class="logo">OPUS AI</h1>
+  </header>
 
-  <div class="card">
-    <h2>Paso 1 — Subir canciones</h2>
-    <div class="row">
-      <div class="card">
-        <label>Song A (salida)</label>
-        <button type="button" class="btn btn-upload" id="btnA">Elegir archivo A</button>
-        <input type="file" id="fileA" accept="audio/*">
-        <div class="file-name" id="nameA">—</div>
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Sesiones Recientes">
+      <h2 class="sidebar-title">Sesiones Recientes</h2>
+      <ul class="session-list" id="sessionList"></ul>
+    </aside>
+
+    <main class="main">
+      <section id="upload-hub" class="upload-hub">
+        <div class="upload-slot" data-slot="a" id="slotA">
+          <input type="file" id="fileA" accept="audio/*" class="upload-input" aria-label="Song A">
+          <span class="upload-label">Song A</span>
+          <span class="upload-filename" id="nameA">Elegir archivo</span>
+          <div class="upload-meta">
+            <span class="badge" id="badgeBpmA"><span class="badge-value" id="valBpmA">—</span> BPM</span>
+            <span class="badge" id="badgeKeyA"><span class="badge-value" id="valKeyA">—</span> KEY</span>
+            <span class="badge" id="badgeEnergyA"><span class="badge-value" id="valEnergyA">—</span> Energy</span>
+          </div>
+          <div class="harmonic-badge harmonic-badge-a" id="harmonicBadgeA" aria-hidden="true">Harmonic Match</div>
+          <div class="sparkline-wrap" id="sparklineWrapA" aria-hidden="true">
+            <canvas class="sparkline" id="sparklineA" width="200" height="24" aria-label="Energía del track"></canvas>
+          </div>
+        </div>
+        <div class="upload-slot" data-slot="b" id="slotB">
+          <input type="file" id="fileB" accept="audio/*" class="upload-input" aria-label="Song B">
+          <span class="upload-label">Song B</span>
+          <span class="upload-filename" id="nameB">Elegir archivo</span>
+          <div class="upload-meta">
+            <span class="badge" id="badgeBpmB"><span class="badge-value" id="valBpmB">—</span> BPM</span>
+            <span class="badge" id="badgeKeyB"><span class="badge-value" id="valKeyB">—</span> KEY</span>
+            <span class="badge" id="badgeEnergyB"><span class="badge-value" id="valEnergyB">—</span> Energy</span>
+          </div>
+          <div class="harmonic-badge harmonic-badge-b" id="harmonicBadgeB" aria-hidden="true">Harmonic Match</div>
+          <div class="sparkline-wrap" id="sparklineWrapB" aria-hidden="true">
+            <canvas class="sparkline" id="sparklineB" width="200" height="24" aria-label="Energía del track"></canvas>
+          </div>
+        </div>
+        <div class="upload-folder-zone" id="folderZone">
+          <input type="file" id="folderInput" class="upload-input" aria-label="Carpeta / Crate" webkitdirectory directory>
+          <span class="upload-label">UPLOAD YOUR FOLDER / CRATE</span>
+          <span class="upload-filename" id="folderName">Elegir carpeta</span>
+        </div>
+      </section>
+
+    <section id="ai-console" class="ai-console">
+      <div class="console-search">
+        <input type="text" id="userPrompt" class="prompt-input" placeholder="Estilo: Cattaneo, Anyma, warm up…" aria-label="Instrucción de estilo">
+        <button type="button" id="btnGenerate" class="btn-generate" disabled>Generar mezcla</button>
       </div>
-      <div class="card">
-        <label>Song B (entrada)</label>
-        <button type="button" class="btn btn-upload" id="btnB">Elegir archivo B</button>
-        <input type="file" id="fileB" accept="audio/*">
-        <div class="file-name" id="nameB">—</div>
+      <div id="progress-container" class="progress-container is-hidden" aria-hidden="true">
+        <div class="progress-bar-folder" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+        <p class="progress-status" id="progressStatus">—</p>
       </div>
-    </div>
+      <div id="folder-download-block" class="folder-download-block is-hidden">
+        <a id="downloadSetLink" class="btn-download-set" href="#" download="opus_set.wav">DOWNLOAD FULL SET (.WAV)</a>
+        <a id="downloadTracklistLink" class="btn-download-tracklist" href="#" download="opus_set_tracklist.txt">TRACKLIST / LOG</a>
+      </div>
+      <div class="progress-bar" id="progressBar" role="progressbar" aria-hidden="true"></div>
+      <div class="musical-insight" id="musicalInsight">
+        <h2 class="insight-title">Musical Insight</h2>
+        <div class="insight-body" id="insightBody"></div>
+      </div>
+    </section>
+
+    <section id="master-player" class="master-player" aria-hidden="true">
+      <h2 class="master-title">Master</h2>
+      <div id="waveformMaster" class="waveform-container"></div>
+      <div class="master-meta">
+        <span class="master-filename" id="masterFilename">automix_master.wav</span>
+        <span class="master-time" id="masterTime">0:00 / 0:00</span>
+      </div>
+      <div class="master-controls">
+        <button type="button" id="btnPlayPause" class="btn-playpause" title="Play / Pause" disabled>▶</button>
+        <a id="downloadLink" class="btn-download" href="#" download="automix_master.wav">Download</a>
+      </div>
+    </section>
+    </main>
   </div>
 
-  <div class="card">
-    <h2>Paso 2 — Generar mezcla</h2>
-    <button type="button" class="btn btn-primary" id="btnGenerate" disabled>Generar mezcla</button>
-    <div class="status" id="status" style="display: none;"></div>
-    <div id="downloadBlock">
-      <a id="downloadLink" class="btn btn-download" href="#" download="automix_mix.wav">Descargar mezcla</a>
-    </div>
-  </div>
-
-  <script>
-    const API = window.location.origin;
-    let sessionId = null;
-    const fileA = document.getElementById('fileA');
-    const fileB = document.getElementById('fileB');
-    const nameA = document.getElementById('nameA');
-    const nameB = document.getElementById('nameB');
-    const btnGenerate = document.getElementById('btnGenerate');
-    const status = document.getElementById('status');
-    const downloadBlock = document.getElementById('downloadBlock');
-    const downloadLink = document.getElementById('downloadLink');
-
-    document.getElementById('btnA').addEventListener('click', () => fileA.click());
-    document.getElementById('btnB').addEventListener('click', () => fileB.click());
-
-    async function ensureSession() {
-      if (sessionId) return sessionId;
-      const r = await fetch(API + '/session', { method: 'POST' });
-      const d = await r.json();
-      sessionId = d.session_id;
-      return sessionId;
-    }
-
-    fileA.addEventListener('change', async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      nameA.textContent = f.name;
-      try {
-        await ensureSession();
-        const fd = new FormData();
-        fd.append('file', f);
-        const r = await fetch(API + '/upload/' + sessionId + '/a', { method: 'POST', body: fd });
-        if (!r.ok) throw new Error(await r.text());
-      } catch (err) {
-        nameA.textContent = 'Error';
-        showStatus(err.message, true);
-      }
-      updateGenerateButton();
-    });
-
-    fileB.addEventListener('change', async (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      nameB.textContent = f.name;
-      try {
-        await ensureSession();
-        const fd = new FormData();
-        fd.append('file', f);
-        const r = await fetch(API + '/upload/' + sessionId + '/b', { method: 'POST', body: fd });
-        if (!r.ok) throw new Error(await r.text());
-      } catch (err) {
-        nameB.textContent = 'Error';
-        showStatus(err.message, true);
-      }
-      updateGenerateButton();
-    });
-
-    function updateGenerateButton() {
-      btnGenerate.disabled = !fileA.files[0] || !fileB.files[0];
-    }
-
-    function showStatus(msg, isError = false) {
-      status.style.display = 'block';
-      status.className = 'status' + (isError ? ' error' : '');
-      status.innerHTML = msg;
-    }
-
-    btnGenerate.addEventListener('click', async () => {
-      if (!sessionId) await ensureSession();
-      btnGenerate.disabled = true;
-      showStatus('Analizando y generando mezcla…');
-      downloadBlock.style.display = 'none';
-      try {
-        const r = await fetch(API + '/generate/' + sessionId, { method: 'POST' });
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) {
-        const msg = Array.isArray(d.detail) ? (d.detail[0]?.msg || JSON.stringify(d.detail)) : (d.detail || 'Error');
-        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      }
-        showStatus(
-          'Listo. Análisis A: BPM ' + d.analysis_a?.bpm + ', key ' + d.analysis_a?.key + '. ' +
-          'Análisis B: BPM ' + d.analysis_b?.bpm + ', key ' + d.analysis_b?.key + '. ' +
-          'Estrategia: ' + (d.strategy?.reasoning || '—')
-        );
-        downloadLink.href = API + '/download/' + sessionId;
-        downloadBlock.style.display = 'block';
-      } catch (err) {
-        showStatus(err.message, true);
-      }
-      btnGenerate.disabled = false;
-    });
-  </script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>

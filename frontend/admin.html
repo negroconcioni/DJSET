@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OPUS AI — The Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="page-admin">
+  <header class="site-header" style="display: flex; align-items: center; width: 100%; max-width: 720px;">
+    <h1 class="logo">OPUS AI</h1>
+    <a href="/" class="admin-header-nav">← Master Mix</a>
+  </header>
+
+  <main class="main admin-main">
+    <section class="lab-prompt">
+      <label class="lab-prompt-label" for="systemPrompt">SYSTEM PROMPT / DJ RULES</label>
+      <textarea class="lab-prompt-textarea" id="systemPrompt" placeholder="Reglas globales de la IA: phrasing, armonía Camelot, bass swap, dj_comment…"></textarea>
+    </section>
+
+    <section class="lab-presets">
+      <div class="lab-deck">
+        <h2 class="lab-deck-title">Sensitivity</h2>
+        <div class="lab-slider-row">
+          <span class="lab-slider-label">BPM Sensitivity</span>
+          <div style="display: flex; align-items: center;">
+            <input type="range" id="bpmSensitivity" class="lab-slider" min="0" max="1" step="0.05" value="0.5">
+            <span class="lab-slider-value" id="bpmSensitivityVal">0.5</span>
+          </div>
+        </div>
+        <div class="lab-slider-row">
+          <span class="lab-slider-label">Harmonic Priority</span>
+          <div style="display: flex; align-items: center;">
+            <input type="range" id="harmonicPriority" class="lab-slider" min="0" max="1" step="0.05" value="0.5">
+            <span class="lab-slider-value" id="harmonicPriorityVal">0.5</span>
+          </div>
+        </div>
+      </div>
+      <div class="lab-deck">
+        <h2 class="lab-deck-title">Transition</h2>
+        <div class="lab-slider-row">
+          <span class="lab-slider-label">Agresividad de la Mezcla (Bass-Swap)</span>
+          <div style="display: flex; align-items: center;">
+            <input type="range" id="bassSwapIntensity" class="lab-slider" min="0" max="1" step="0.05" value="0.5">
+            <span class="lab-slider-value" id="bassSwapIntensityVal">0.5</span>
+          </div>
+        </div>
+        <div class="lab-bars-row">
+          <span class="lab-slider-label">Transition Length Default</span>
+          <div class="lab-bars-options" id="defaultBars">
+            <input type="radio" name="defaultBars" id="bars16" value="16">
+            <label for="bars16">16</label>
+            <input type="radio" name="defaultBars" id="bars32" value="32">
+            <label for="bars32">32</label>
+            <input type="radio" name="defaultBars" id="bars64" value="64">
+            <label for="bars64">64</label>
+          </div>
+        </div>
+      </div>
+      <div class="lab-deck">
+        <h2 class="lab-deck-title">Overlays IA</h2>
+        <div class="lab-check-row">
+          <input type="checkbox" id="allowInstrumentsAi" class="lab-checkbox">
+          <label for="allowInstrumentsAi">Permitir Instrumentos IA</label>
+        </div>
+        <div class="lab-check-row">
+          <input type="checkbox" id="allowVocalsAi" class="lab-checkbox">
+          <label for="allowVocalsAi">Permitir Vocales IA</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="lab-debug">
+      <h2 class="lab-debug-title">DEBUG CONSOLE</h2>
+      <div class="lab-debug-body" id="debugBody"></div>
+    </section>
+
+    <div class="lab-actions">
+      <button type="button" class="btn-save-train" id="btnSaveTrain">SAVE CONFIGURATION & TRAIN</button>
+      <span class="admin-status-msg" id="statusMsg"></span>
+    </div>
+  </main>
+
+  <script type="module" src="/static/js/admin.js"></script>
+</body>
+</html>

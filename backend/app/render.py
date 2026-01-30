@@ -1,9 +1,14 @@
-"""Offline audio render: time-stretch, pitch-shift, crossfade. Uses Rubber Band + FFmpeg."""
+"""Offline audio render: Rubber Band (stretch/pitch) + processor (acrossfade sin -t/-to/atrim)."""
 import subprocess
 from pathlib import Path
 from typing import Optional
 
+from .audio.processor import render_professional_mix as processor_mix
 from .models import MixStrategy, SongAnalysis
+
+# Redondeo de tiempos (evita errores de precisión)
+def _t(x: float) -> float:
+    return round(float(x), 3)
 
 
 def _run(cmd: list[str], cwd: Optional[Path] = None) -> None:
@@ -15,9 +20,11 @@ def _rubberband(
     output_path: Path,
     stretch_ratio: float,
     pitch_semitones: float,
+    *,
+    skip_stretch: bool = False,
 ) -> None:
-    """Run Rubber Band: time stretch and pitch shift."""
-    if abs(stretch_ratio - 1.0) < 1e-6 and abs(pitch_semitones) < 1e-6:
+    """Run Rubber Band: time stretch and pitch shift. If skip_stretch True, only copy (no processing)."""
+    if skip_stretch or (abs(stretch_ratio - 1.0) < 1e-6 and abs(pitch_semitones) < 1e-6):
         _run([
             "ffmpeg", "-y",
             "-i", str(input_path),
@@ -71,46 +78,56 @@ def render_mix(
     a_proc = work_dir / "a_proc.wav"
     b_proc = work_dir / "b_proc.wav"
 
+    # Cada pista evalúa su propio stretch/pitch; no usar bpm_diff para ambas (ignoraría ajustes de B)
+    skip_a = (
+        abs(strategy.song_a_stretch_ratio - 1.0) < 1e-6
+        and abs(strategy.song_a_pitch_semitones) < 1e-6
+    )
+    skip_b = (
+        abs(strategy.song_b_stretch_ratio - 1.0) < 1e-6
+        and abs(strategy.song_b_pitch_semitones) < 1e-6
+    )
+
     _rubberband(
         path_a,
         a_proc,
         strategy.song_a_stretch_ratio,
         strategy.song_a_pitch_semitones,
+        skip_stretch=skip_a,
     )
     _rubberband(
         path_b,
         b_proc,
         strategy.song_b_stretch_ratio,
         strategy.song_b_pitch_semitones,
+        skip_stretch=skip_b,
     )
 
-    dur_a = _duration(a_proc)
-    dur_b = _duration(b_proc)
+    duration_a = _t(_duration(a_proc))
+    duration_b = _t(_duration(b_proc))
 
-    transition_start = min(strategy.song_a_transition_start_sec, dur_a - 1.0)
-    crossfade = min(strategy.crossfade_sec, dur_a - transition_start, 20.0)
-    crossfade = max(1.0, crossfade)
+    # REGLA DE ORO: cross_d = min(strategy, duration_a*0.2, duration_b*0.2). Phrasing ya en decision (32 barras).
+    cross_d = _t(float(strategy.crossfade_sec))
+    cross_d = _t(min(cross_d, duration_a * 0.2, duration_b * 0.2))
+    cross_d = _t(max(0.5, min(cross_d, 120.0)))
 
-    # 👉 CLAVE: NO concatenamos audio "mid" como archivo separado
-    # usamos filter_complex con acrossfade + atrim
-
-    _run([
-        "ffmpeg", "-y",
-        "-i", str(a_proc),
-        "-i", str(b_proc),
-        "-filter_complex",
-        (
-            f"[0:a]atrim=0:{transition_start},asetpts=PTS-STARTPTS[a0];"
-            f"[0:a]atrim={transition_start}:{transition_start + crossfade},asetpts=PTS-STARTPTS[a1];"
-            f"[1:a]atrim=0:{crossfade},asetpts=PTS-STARTPTS[b0];"
-            f"[1:a]atrim={crossfade},asetpts=PTS-STARTPTS[b1];"
-            f"[a1][b0]acrossfade=d={crossfade}:c1=tri:c2=tri[x];"
-            f"[a0][x][b1]concat=n=3:v=0:a=1[out]"
-        ),
-        "-map", "[out]",
-        "-acodec", "pcm_s16le",
-        str(output_path),
-    ])
+    # Sound Color FX: highpass en A cuando las keys chocan (harmonic_distance > 1)
+    apply_highpass_a = (
+        getattr(strategy, "harmonic_distance", None) is not None
+        and strategy.harmonic_distance > 1
+    )
+    overlay_paths = getattr(strategy, "overlay_paths", None) or []
+    overlay_bpms = getattr(strategy, "overlay_bpms", None) or []
+    overlay_entry_sec = getattr(strategy, "overlay_entry_sec", None)
+    target_bpm = (analysis_a.bpm + analysis_b.bpm) / 2.0 if overlay_paths else None
+    processor_mix(
+        a_proc, b_proc, output_path, cross_d,
+        apply_highpass_a=apply_highpass_a,
+        overlay_paths=overlay_paths,
+        overlay_bpms=overlay_bpms if len(overlay_bpms) == len(overlay_paths) else None,
+        target_bpm=target_bpm if overlay_paths else None,
+        overlay_entry_sec=overlay_entry_sec,
+    )
 
     # Limpieza
     for p in (a_proc, b_proc):

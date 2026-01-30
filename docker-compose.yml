@@ -1,0 +1,62 @@
+# Opus Pro Infrastructure — API, AI Brain, Audio Workers, Redis
+version: '3.8'
+
+services:
+  # Gateway API: recibe carpetas, UI, Socket.IO
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./shared_data:/app/data
+      - ./assets:/app/assets
+    environment:
+      - AUTOMIX_REDIS_URL=redis://redis:6379/0
+      - AUTOMIX_SESSION_ROOT=/app/data/sessions
+      - AUTOMIX_ASSETS_SAMPLES_DIR=/app/assets/samples
+    depends_on:
+      - redis
+
+  # AI Brain: sequencer + decisiones musicales (cola ai_brain)
+  ai-brain:
+    build:
+      context: .
+      dockerfile: ai-brain/Dockerfile
+    volumes:
+      - ./shared_data:/app/data
+      - ./assets:/app/assets
+    environment:
+      - AUTOMIX_REDIS_URL=redis://redis:6379/0
+      - AUTOMIX_SESSION_ROOT=/app/data/sessions
+      - AUTOMIX_ASSETS_SAMPLES_DIR=/app/assets/samples
+    depends_on:
+      - redis
+
+  # Audio Worker: FFmpeg, Rubber Band, processor (cola audio_worker)
+  audio-worker:
+    build:
+      context: .
+      dockerfile: audio-worker/Dockerfile
+    deploy:
+      replicas: 2
+    volumes:
+      - ./shared_data:/app/data
+      - ./assets:/app/assets
+    environment:
+      - AUTOMIX_REDIS_URL=redis://redis:6379/0
+      - AUTOMIX_SESSION_ROOT=/app/data/sessions
+      - AUTOMIX_ASSETS_SAMPLES_DIR=/app/assets/samples
+    depends_on:
+      - redis
+
+  # Redis: colas Celery, estado de jobs, admin config
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  shared_data:
+  assets:
